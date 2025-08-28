@@ -1,24 +1,16 @@
 import React, { useEffect, useState, useMemo } from "react";
 import { db } from "../firebase";
+import { collection, getDocs, doc, deleteDoc } from "firebase/firestore";
 import {
-    collection,
-    getDocs,
-    doc,
-    deleteDoc,
-    updateDoc,
-} from "firebase/firestore";
-import {
-    FaSortUp,
-    FaSortDown,
     FaEnvelope,
     FaPhone,
-    FaSearch,
-    FaEdit,
     FaTrash,
-    FaTimes,
+    FaEdit,
+    FaSearch,
     FaUser,
+    FaArrowLeft,
 } from "react-icons/fa";
-import { Modal, Button } from "react-bootstrap";
+import { Link } from "react-router-dom";
 import "./UserList.css";
 
 function UserList() {
@@ -26,34 +18,24 @@ function UserList() {
     const [searchTerm, setSearchTerm] = useState("");
     const [sortConfig, setSortConfig] = useState({
         key: null,
-        direction: "asc",
+        direction: "ascending",
     });
     const [loading, setLoading] = useState(true);
-    const [error, setError] = useState(null);
+    const [deletingId, setDeletingId] = useState(null);
 
-    const [editingUser, setEditingUser] = useState(null);
-    const [name, setName] = useState("");
-    const [email, setEmail] = useState("");
-    const [phone, setPhone] = useState("");
-
-    const [showDeleteModal, setShowDeleteModal] = useState(false);
-    const [deleteUserId, setDeleteUserId] = useState(null);
-    const [deleteUserName, setDeleteUserName] = useState("");
-
-    // Fetch Users
+    // Fetch users from Firestore
     useEffect(() => {
         const fetchUsers = async () => {
             try {
-                setError(null);
                 const querySnapshot = await getDocs(collection(db, "users"));
                 const userData = querySnapshot.docs.map((doc) => ({
                     id: doc.id,
                     ...doc.data(),
                 }));
                 setUsers(userData);
-            } catch (error) {
-                console.error("Error fetching users:", error);
-                setError("Failed to load users. Please try again later.");
+            } catch (err) {
+                console.error("Error fetching users:", err);
+                alert("Error loading users. Please try again.");
             } finally {
                 setLoading(false);
             }
@@ -61,21 +43,36 @@ function UserList() {
         fetchUsers();
     }, []);
 
-    // Sorting
+    // Handle sorting
+    const handleSort = (key) => {
+        let direction = "ascending";
+        if (sortConfig.key === key && sortConfig.direction === "ascending") {
+            direction = "descending";
+        }
+        setSortConfig({ key, direction });
+    };
+
+    // Sort users
     const sortedUsers = useMemo(() => {
         let sortableUsers = [...users];
         if (sortConfig.key) {
             sortableUsers.sort((a, b) => {
-                const aVal = (a[sortConfig.key] ?? "").toString().toLowerCase();
-                const bVal = (b[sortConfig.key] ?? "").toString().toLowerCase();
-                if (aVal < bVal) return sortConfig.direction === "asc" ? -1 : 1;
-                if (aVal > bVal) return sortConfig.direction === "asc" ? 1 : -1;
+                const aVal = a[sortConfig.key]?.toString().toLowerCase() || "";
+                const bVal = b[sortConfig.key]?.toString().toLowerCase() || "";
+
+                if (aVal < bVal) {
+                    return sortConfig.direction === "ascending" ? -1 : 1;
+                }
+                if (aVal > bVal) {
+                    return sortConfig.direction === "ascending" ? 1 : -1;
+                }
                 return 0;
             });
         }
         return sortableUsers;
     }, [users, sortConfig]);
 
+    // Filter by search term
     const filteredUsers = sortedUsers.filter(
         (user) =>
             user.name?.toLowerCase().includes(searchTerm.toLowerCase()) ||
@@ -83,66 +80,22 @@ function UserList() {
             user.phone?.includes(searchTerm),
     );
 
-    const sortBy = (key) => {
-        let direction = "asc";
-        if (sortConfig.key === key && sortConfig.direction === "asc")
-            direction = "desc";
-        setSortConfig({ key, direction });
-    };
-
-    // Delete User
-    const handleDelete = async () => {
-        try {
-            await deleteDoc(doc(db, "users", deleteUserId));
-            setUsers(users.filter((u) => u.id !== deleteUserId));
-            setShowDeleteModal(false);
-        } catch (err) {
-            console.error(err);
-            setError("Error deleting user. Please try again.");
+    const handleDelete = async (id) => {
+        if (window.confirm("Are you sure you want to delete this user?")) {
+            setDeletingId(id);
+            try {
+                await deleteDoc(doc(db, "users", id));
+                setUsers(users.filter((user) => user.id !== id));
+            } catch (err) {
+                console.error(err);
+                alert("Error deleting user. Please try again.");
+            } finally {
+                setDeletingId(null);
+            }
         }
     };
 
-    // Edit User
-    const handleEdit = (user) => {
-        setEditingUser(user);
-        setName(user.name);
-        setEmail(user.email);
-        setPhone(user.phone);
-    };
-
-    // Update User
-    const handleUpdate = async (e) => {
-        e.preventDefault();
-        try {
-            const userRef = doc(db, "users", editingUser.id);
-            await updateDoc(userRef, {
-                name: name.trim(),
-                email: email.trim(),
-                phone: phone.trim(),
-            });
-            setUsers(
-                users.map((u) =>
-                    u.id === editingUser.id
-                        ? {
-                              ...u,
-                              name: name.trim(),
-                              email: email.trim(),
-                              phone: phone.trim(),
-                          }
-                        : u,
-                ),
-            );
-            setEditingUser(null);
-        } catch (err) {
-            console.error(err);
-            setError("Error updating user. Please try again.");
-        }
-    };
-
-    const handleCancelEdit = () => {
-        setEditingUser(null);
-    };
-
+    // Format timestamp
     const formatDate = (timestamp) => {
         if (!timestamp) return "N/A";
         const date = timestamp.toDate
@@ -152,13 +105,15 @@ function UserList() {
             year: "numeric",
             month: "short",
             day: "numeric",
+            hour: "2-digit",
+            minute: "2-digit",
         });
     };
 
     if (loading) {
         return (
-            <div className="user-list-container">
-                <div className="loading-spinner">
+            <div className="userlist-container">
+                <div className="userlist-loading">
                     <div className="spinner"></div>
                     <p>Loading users...</p>
                 </div>
@@ -167,332 +122,107 @@ function UserList() {
     }
 
     return (
-        <div className="user-list-container">
-            <div className="user-list-header">
-                <h2>Registered Users</h2>
-                <p>Manage all registered users in the system</p>
+        <div className="userlist-container">
+            <div className="userlist-header">
+                <Link to="/" className="back-button">
+                    <FaArrowLeft />
+                    Back to Home
+                </Link>
+                <h1>Registered Users</h1>
+                <p className="userlist-subtitle">
+                    {filteredUsers.length} user
+                    {filteredUsers.length !== 1 ? "s" : ""} found
+                </p>
             </div>
 
-            {/* Search Box */}
-            <div className="search-container">
-                <FaSearch className="search-icon" />
-                <input
-                    type="text"
-                    placeholder="Search by name, email, or phone"
-                    className="search-input"
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                />
-                {searchTerm && (
-                    <button
-                        className="clear-search"
-                        onClick={() => setSearchTerm("")}
-                    >
-                        <FaTimes />
-                    </button>
-                )}
-            </div>
-
-            {/* Error Message */}
-            {error && (
-                <div className="error-alert">
-                    <span>{error}</span>
-                    <button onClick={() => setError(null)}>
-                        <FaTimes />
-                    </button>
-                </div>
-            )}
-
-            {/* No Users Message */}
-            {!loading && users.length === 0 && (
-                <div className="empty-state">
-                    <FaUser className="empty-icon" />
-                    <h3>No Users Found</h3>
-                    <p>There are no registered users in the system yet.</p>
-                </div>
-            )}
-
-            {/* No Search Results Message */}
-            {users.length > 0 && filteredUsers.length === 0 && (
-                <div className="empty-state">
-                    <FaSearch className="empty-icon" />
-                    <h3>No Matching Users</h3>
-                    <p>
-                        Try adjusting your search terms to find what you're
-                        looking for.
-                    </p>
-                </div>
-            )}
-
-            {/* Table View */}
-            {filteredUsers.length > 0 && (
-                <>
-                    <div className="d-none d-md-block table-container">
-                        <table className="user-table">
-                            <thead>
-                                <tr>
-                                    <th onClick={() => sortBy("name")}>
-                                        <div className="table-header">
-                                            Name
-                                            {sortConfig.key === "name" &&
-                                                (sortConfig.direction ===
-                                                "asc" ? (
-                                                    <FaSortUp className="sort-icon" />
-                                                ) : (
-                                                    <FaSortDown className="sort-icon" />
-                                                ))}
-                                        </div>
-                                    </th>
-                                    <th onClick={() => sortBy("email")}>
-                                        <div className="table-header">
-                                            Email
-                                            {sortConfig.key === "email" &&
-                                                (sortConfig.direction ===
-                                                "asc" ? (
-                                                    <FaSortUp className="sort-icon" />
-                                                ) : (
-                                                    <FaSortDown className="sort-icon" />
-                                                ))}
-                                        </div>
-                                    </th>
-                                    <th onClick={() => sortBy("phone")}>
-                                        <div className="table-header">
-                                            Phone
-                                            {sortConfig.key === "phone" &&
-                                                (sortConfig.direction ===
-                                                "asc" ? (
-                                                    <FaSortUp className="sort-icon" />
-                                                ) : (
-                                                    <FaSortDown className="sort-icon" />
-                                                ))}
-                                        </div>
-                                    </th>
-                                    <th>Registered On</th>
-                                    <th>Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                {filteredUsers.map((user) => (
-                                    <tr key={user.id}>
-                                        <td>
-                                            <div className="user-info">
-                                                <div className="user-avatar">
-                                                    {user.name
-                                                        ? user.name
-                                                              .charAt(0)
-                                                              .toUpperCase()
-                                                        : "U"}
-                                                </div>
-                                                <div className="user-details">
-                                                    <div className="user-name">
-                                                        {user.name ?? "N/A"}
-                                                    </div>
-                                                </div>
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className="email-cell">
-                                                <FaEnvelope className="cell-icon" />
-                                                {user.email ?? "N/A"}
-                                            </div>
-                                        </td>
-                                        <td>
-                                            <div className="phone-cell">
-                                                <FaPhone className="cell-icon" />
-                                                {user.phone ?? "N/A"}
-                                            </div>
-                                        </td>
-                                        <td>{formatDate(user.timestamp)}</td>
-                                        <td>
-                                            <div className="action-buttons">
-                                                <button
-                                                    className="btn-edit"
-                                                    onClick={() =>
-                                                        handleEdit(user)
-                                                    }
-                                                    title="Edit user"
-                                                >
-                                                    <FaEdit />
-                                                </button>
-                                                <button
-                                                    className="btn-delete"
-                                                    onClick={() => {
-                                                        setDeleteUserId(
-                                                            user.id,
-                                                        );
-                                                        setDeleteUserName(
-                                                            user.name,
-                                                        );
-                                                        setShowDeleteModal(
-                                                            true,
-                                                        );
-                                                    }}
-                                                    title="Delete user"
-                                                >
-                                                    <FaTrash />
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
+            <div className="userlist-content">
+                {/* Search Input */}
+                <div className="search-container">
+                    <div className="search-input-wrapper">
+                        <FaSearch className="search-icon" />
+                        <input
+                            type="text"
+                            placeholder="Search by name, email, or phone..."
+                            className="search-input"
+                            value={searchTerm}
+                            onChange={(e) => setSearchTerm(e.target.value)}
+                        />
+                        {searchTerm && (
+                            <button
+                                className="clear-search"
+                                onClick={() => setSearchTerm("")}
+                            >
+                                ×
+                            </button>
+                        )}
                     </div>
+                </div>
 
-                    {/* Card View for Mobile */}
-                    <div className="d-block d-md-none cards-container">
+                {/* Users List */}
+                {filteredUsers.length === 0 ? (
+                    <div className="empty-state">
+                        <FaUser className="empty-icon" />
+                        <h3>No users found</h3>
+                        <p>Try adjusting your search or register new users</p>
+                        <Link to="/registration" className="cta-button">
+                            Register New User
+                        </Link>
+                    </div>
+                ) : (
+                    <div className="users-grid">
                         {filteredUsers.map((user) => (
-                            <div className="user-card" key={user.id}>
-                                <div className="card-header">
-                                    <div className="user-avatar large">
-                                        {user.name
-                                            ? user.name.charAt(0).toUpperCase()
-                                            : "U"}
-                                    </div>
-                                    <div className="user-info">
-                                        <div className="user-name">
-                                            {user.name ?? "N/A"}
-                                        </div>
-                                        <div className="user-joined">
-                                            Joined {formatDate(user.timestamp)}
-                                        </div>
+                            <div key={user.id} className="user-card">
+                                <div className="user-card-header">
+                                    <h3 className="user-name">{user.name}</h3>
+                                    <div className="user-actions">
+                                        <button className="action-btn edit-btn">
+                                            <FaEdit />
+                                        </button>
+                                        <button
+                                            className="action-btn delete-btn"
+                                            onClick={() =>
+                                                handleDelete(user.id)
+                                            }
+                                            disabled={deletingId === user.id}
+                                        >
+                                            {deletingId === user.id ? (
+                                                <div className="mini-spinner"></div>
+                                            ) : (
+                                                <FaTrash />
+                                            )}
+                                        </button>
                                     </div>
                                 </div>
-                                <div className="card-details">
-                                    <div className="detail-item">
+
+                                <div className="user-details">
+                                    <div className="user-detail">
                                         <FaEnvelope className="detail-icon" />
-                                        <span>{user.email ?? "N/A"}</span>
+                                        <span className="detail-text">
+                                            {user.email}
+                                        </span>
                                     </div>
-                                    <div className="detail-item">
+                                    <div className="user-detail">
                                         <FaPhone className="detail-icon" />
-                                        <span>{user.phone ?? "N/A"}</span>
+                                        <span className="detail-text">
+                                            {user.phone}
+                                        </span>
                                     </div>
-                                </div>
-                                <div className="card-actions">
-                                    <button
-                                        className="btn-edit"
-                                        onClick={() => handleEdit(user)}
-                                    >
-                                        <FaEdit /> Edit
-                                    </button>
-                                    <button
-                                        className="btn-delete"
-                                        onClick={() => {
-                                            setDeleteUserId(user.id);
-                                            setDeleteUserName(user.name);
-                                            setShowDeleteModal(true);
-                                        }}
-                                    >
-                                        <FaTrash /> Delete
-                                    </button>
+                                    {user.timestamp && (
+                                        <div className="user-detail">
+                                            <span className="detail-label">
+                                                Registered:
+                                            </span>
+                                            <span className="detail-text">
+                                                {formatDate(user.timestamp)}
+                                            </span>
+                                        </div>
+                                    )}
                                 </div>
                             </div>
                         ))}
                     </div>
-                </>
-            )}
-
-            {/* Edit Form Modal */}
-            {editingUser && (
-                <div className="modal-overlay">
-                    <div className="edit-modal">
-                        <div className="modal-header">
-                            <h3>Edit User</h3>
-                            <button
-                                className="close-button"
-                                onClick={handleCancelEdit}
-                            >
-                                <FaTimes />
-                            </button>
-                        </div>
-                        <form onSubmit={handleUpdate} className="edit-form">
-                            <div className="form-group">
-                                <label>Full Name</label>
-                                <input
-                                    value={name}
-                                    onChange={(e) => setName(e.target.value)}
-                                    className="form-input"
-                                    placeholder="Enter name"
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Email Address</label>
-                                <input
-                                    type="email"
-                                    value={email}
-                                    onChange={(e) => setEmail(e.target.value)}
-                                    className="form-input"
-                                    placeholder="Enter email"
-                                    required
-                                />
-                            </div>
-                            <div className="form-group">
-                                <label>Phone Number</label>
-                                <input
-                                    value={phone}
-                                    onChange={(e) => setPhone(e.target.value)}
-                                    className="form-input"
-                                    placeholder="Enter phone number"
-                                    required
-                                />
-                            </div>
-                            <div className="form-actions">
-                                <button
-                                    type="button"
-                                    className="btn-cancel"
-                                    onClick={handleCancelEdit}
-                                >
-                                    Cancel
-                                </button>
-                                <button type="submit" className="btn-update">
-                                    Update User
-                                </button>
-                            </div>
-                        </form>
-                    </div>
-                </div>
-            )}
-
-            {/* Delete Confirmation Modal */}
-            <Modal
-                show={showDeleteModal}
-                onHide={() => setShowDeleteModal(false)}
-                centered
-                className="delete-modal"
-            >
-                <Modal.Header closeButton>
-                    <Modal.Title>Confirm Deletion</Modal.Title>
-                </Modal.Header>
-                <Modal.Body>
-                    <div className="delete-confirmation">
-                        <div className="delete-warning">
-                            <FaTrash className="warning-icon" />
-                        </div>
-                        <p>
-                            Are you sure you want to delete{" "}
-                            <strong>{deleteUserName}</strong>? This action
-                            cannot be undone.
-                        </p>
-                    </div>
-                </Modal.Body>
-                <Modal.Footer>
-                    <Button
-                        variant="secondary"
-                        onClick={() => setShowDeleteModal(false)}
-                        className="btn-cancel"
-                    >
-                        Cancel
-                    </Button>
-                    <Button
-                        variant="danger"
-                        onClick={handleDelete}
-                        className="btn-confirm-delete"
-                    >
-                        Delete User
-                    </Button>
-                </Modal.Footer>
-            </Modal>
+                )}
+            </div>
         </div>
     );
 }
