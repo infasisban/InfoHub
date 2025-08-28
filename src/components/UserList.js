@@ -157,6 +157,34 @@ function UserList() {
                         )}
                     </div>
                 </div>
+                {/* Sorting Buttons */}
+                <div className="sort-buttons">
+                    <span>Sort by: </span>
+                    <button onClick={() => handleSort("name")}>
+                        Name{" "}
+                        {sortConfig.key === "name"
+                            ? sortConfig.direction === "ascending"
+                                ? "↑"
+                                : "↓"
+                            : ""}
+                    </button>
+                    <button onClick={() => handleSort("email")}>
+                        Email{" "}
+                        {sortConfig.key === "email"
+                            ? sortConfig.direction === "ascending"
+                                ? "↑"
+                                : "↓"
+                            : ""}
+                    </button>
+                    <button onClick={() => handleSort("phone")}>
+                        Phone{" "}
+                        {sortConfig.key === "phone"
+                            ? sortConfig.direction === "ascending"
+                                ? "↑"
+                                : "↓"
+                            : ""}
+                    </button>
+                </div>
 
                 {/* Users List */}
                 {filteredUsers.length === 0 ? (
