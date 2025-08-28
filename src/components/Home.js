@@ -228,7 +228,7 @@ function Home() {
                         </div>
                     </div>
                     <div className="footer-bottom">
-                        <p>&copy; 2023 InfoHub. All rights reserved.</p>
+                        <p>&copy; 2025 InfoHub. All rights reserved.</p>
                     </div>
                 </div>
             </footer>
