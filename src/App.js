@@ -6,6 +6,7 @@ import About from "./components/About";
 import "./firebase";
 import UserList from "./components/UserList";
 import "bootstrap/dist/css/bootstrap.min.css";
+import EditUser from "./EditUser";
 
 function App() {
     return (
@@ -15,6 +16,7 @@ function App() {
                 <Route path="/registration" element={<Registration />} />
                 <Route path="/about" element={<About />} />
                 <Route path="/users" element={<UserList />} />
+                <Route path="/edit/:id" element={<EditUser />} />
             </Routes>
         </Router>
     );

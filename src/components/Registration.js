@@ -2,13 +2,7 @@ import React, { useState } from "react";
 import { db } from "../firebase";
 import { collection, addDoc } from "firebase/firestore";
 import { useNavigate } from "react-router-dom";
-import {
-    FaUser,
-    FaEnvelope,
-    FaPhone,
-    FaArrowLeft,
-    FaUsers,
-} from "react-icons/fa";
+import { FaArrowLeft, FaUsers } from "react-icons/fa";
 import "./Registration.css";
 
 function Registration() {
@@ -98,7 +92,6 @@ function Registration() {
                     <div className="form-group">
                         <label className="form-label">Full Name</label>
                         <div className="input-with-icon">
-                            <FaUser className="input-icon" />
                             <input
                                 type="text"
                                 value={name}
@@ -119,7 +112,6 @@ function Registration() {
                     <div className="form-group">
                         <label className="form-label">Email Address</label>
                         <div className="input-with-icon">
-                            <FaEnvelope className="input-icon" />
                             <input
                                 type="email"
                                 value={email}
@@ -142,7 +134,6 @@ function Registration() {
                     <div className="form-group">
                         <label className="form-label">Phone Number</label>
                         <div className="input-with-icon">
-                            <FaPhone className="input-icon" />
                             <input
                                 type="tel"
                                 value={phone}
